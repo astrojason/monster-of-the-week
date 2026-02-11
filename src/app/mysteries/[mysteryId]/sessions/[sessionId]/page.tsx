@@ -10,6 +10,7 @@ import type { Mystery, Session } from "@/lib/types";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import {
   ArrowLeft,
   Calendar,
@@ -186,7 +187,7 @@ export default function SessionDetailPage({
                 </p>
               )}
               <div className="bg-surface border border-border rounded-lg p-6 prose-dark">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                   {session.transcript}
                 </ReactMarkdown>
               </div>
