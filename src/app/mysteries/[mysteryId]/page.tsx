@@ -14,6 +14,7 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
 import { LoginForm } from "@/components/LoginForm";
+import { NotesSection } from "@/components/NotesSection";
 import type { Mystery, Session } from "@/lib/types";
 import Link from "next/link";
 import {
@@ -155,6 +156,22 @@ export default function MysteryDetailPage({
         )}
       </div>
 
+      {/* Notes */}
+      <div className="mb-6">
+        <NotesSection
+          playerNotes={mystery.playerNotes || ""}
+          keeperNotes={mystery.keeperNotes || ""}
+          onSavePlayerNotes={async (notes) => {
+            await updateDoc(doc(db, "mysteries", mysteryId), { playerNotes: notes });
+            setMystery({ ...mystery, playerNotes: notes });
+          }}
+          onSaveKeeperNotes={async (notes) => {
+            await updateDoc(doc(db, "mysteries", mysteryId), { keeperNotes: notes });
+            setMystery({ ...mystery, keeperNotes: notes });
+          }}
+        />
+      </div>
+
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Sessions</h2>
         {role === "keeper" && (
@@ -257,6 +274,8 @@ function CreateSessionModal({
         summary: form.summary,
         transcript,
         transcriptName,
+        playerNotes: "",
+        keeperNotes: "",
         createdAt: Date.now(),
       };
 

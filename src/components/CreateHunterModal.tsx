@@ -52,6 +52,8 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
         harm: 0,
         experience: 0,
         notes: form.notes,
+        playerNotes: "",
+        keeperNotes: "",
         imageUrl: "",
         imageData: "",
       };

@@ -18,6 +18,8 @@ export interface Hunter {
   harm: number;
   experience: number;
   notes: string;
+  playerNotes: string;
+  keeperNotes: string;
   imageUrl: string;
   imageData: string;
 }
@@ -27,6 +29,8 @@ export interface Mystery {
   title: string;
   description: string;
   status: "active" | "completed";
+  playerNotes: string;
+  keeperNotes: string;
   createdAt: number;
 }
 
@@ -37,6 +41,8 @@ export interface Session {
   summary: string;
   transcript: string;
   transcriptName: string;
+  playerNotes: string;
+  keeperNotes: string;
   createdAt: number;
 }
 

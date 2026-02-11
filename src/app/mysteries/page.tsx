@@ -235,7 +235,7 @@ function CreateMysteryModal({ onClose, onCreate }: { onClose: () => void; onCrea
     }
     setSaving(true);
     try {
-      const data = { ...form, createdAt: Date.now() };
+      const data = { ...form, playerNotes: "", keeperNotes: "", createdAt: Date.now() };
       const docRef = await addDoc(collection(db, "mysteries"), data);
       onCreate({ id: docRef.id, ...data });
       onClose();
