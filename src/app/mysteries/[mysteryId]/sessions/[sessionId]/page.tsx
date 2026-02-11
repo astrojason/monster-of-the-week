@@ -9,7 +9,9 @@ import type { Mystery, Session } from "@/lib/types";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowLeft, Calendar, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Loader2, ScrollText } from "lucide-react";
+
+type Tab = "recap" | "transcript";
 
 export default function SessionDetailPage({
   params,
@@ -21,6 +23,7 @@ export default function SessionDetailPage({
   const [mystery, setMystery] = useState<Mystery | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>("recap");
 
   useEffect(() => {
     if (!role) return;
@@ -93,40 +96,80 @@ export default function SessionDetailPage({
             {session.date}
           </span>
         </div>
-        <h1 className="text-2xl font-bold mb-2">
+        <h1 className="text-2xl font-bold mb-4">
           Session {session.sessionNumber}
         </h1>
-        {session.summary && (
-          <div className="bg-surface border border-border rounded-lg p-4 mb-4">
-            <h3 className="text-xs text-muted uppercase tracking-wide mb-1">
-              Summary
-            </h3>
-            <p className="text-sm">{session.summary}</p>
-          </div>
-        )}
       </div>
 
-      {session.transcript ? (
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <FileText className="w-4 h-4 text-accent" />
-            <h2 className="font-semibold">Transcript</h2>
-            {session.transcriptName && (
-              <span className="text-xs text-muted">
-                ({session.transcriptName})
-              </span>
-            )}
-          </div>
-          <div className="bg-surface border border-border rounded-lg p-6 prose-dark">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {session.transcript}
-            </ReactMarkdown>
-          </div>
+      {/* Tabs */}
+      <div className="flex border-b border-border mb-6">
+        <button
+          onClick={() => setActiveTab("recap")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === "recap"
+              ? "border-accent text-accent"
+              : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          <ScrollText className="w-4 h-4" />
+          Recap
+        </button>
+        <button
+          onClick={() => setActiveTab("transcript")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            activeTab === "transcript"
+              ? "border-accent text-accent"
+              : "border-transparent text-muted hover:text-foreground"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Transcript
+          {!session.transcript && (
+            <span className="text-xs text-muted">(none)</span>
+          )}
+        </button>
+      </div>
+
+      {/* Recap Tab */}
+      {activeTab === "recap" && (
+        <div>
+          {session.summary ? (
+            <div className="bg-surface border border-border rounded-lg p-6 prose-dark">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {session.summary}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted bg-surface border border-border rounded-lg">
+              <ScrollText className="w-10 h-10 mx-auto mb-2 text-border" />
+              <p className="text-sm">No recap for this session yet.</p>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="text-center py-12 text-muted bg-surface border border-border rounded-lg">
-          <FileText className="w-10 h-10 mx-auto mb-2 text-border" />
-          <p className="text-sm">No transcript uploaded for this session.</p>
+      )}
+
+      {/* Transcript Tab */}
+      {activeTab === "transcript" && (
+        <div>
+          {session.transcript ? (
+            <div>
+              {session.transcriptName && (
+                <p className="text-xs text-muted mb-3">
+                  {session.transcriptName}
+                </p>
+              )}
+              <div className="bg-surface border border-border rounded-lg p-6 prose-dark">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {session.transcript}
+                </ReactMarkdown>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted bg-surface border border-border rounded-lg">
+              <FileText className="w-10 h-10 mx-auto mb-2 text-border" />
+              <p className="text-sm">No transcript uploaded for this session.</p>
+            </div>
+          )}
         </div>
       )}
     </div>

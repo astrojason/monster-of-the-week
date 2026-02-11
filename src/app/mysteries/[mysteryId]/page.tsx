@@ -7,6 +7,7 @@ import {
   collection,
   getDocs,
   addDoc,
+  updateDoc,
   orderBy,
   query,
 } from "firebase/firestore";
@@ -23,6 +24,8 @@ import {
   Calendar,
   X,
   Upload,
+  CheckCircle,
+  RotateCcw,
 } from "lucide-react";
 
 export default function MysteryDetailPage({
@@ -36,6 +39,21 @@ export default function MysteryDetailPage({
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
+
+  const toggleMysteryStatus = async () => {
+    if (!mystery) return;
+    setTogglingStatus(true);
+    try {
+      const newStatus = mystery.status === "active" ? "completed" : "active";
+      await updateDoc(doc(db, "mysteries", mysteryId), { status: newStatus });
+      setMystery({ ...mystery, status: newStatus });
+    } catch (err) {
+      console.error("Failed to update mystery status:", err);
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
 
   useEffect(() => {
     if (!role) return;
@@ -95,17 +113,42 @@ export default function MysteryDetailPage({
       </Link>
 
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-2xl font-bold">{mystery.title}</h1>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full ${
-              mystery.status === "active"
-                ? "bg-success/20 text-success"
-                : "bg-muted/20 text-muted"
-            }`}
-          >
-            {mystery.status}
-          </span>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">{mystery.title}</h1>
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full ${
+                mystery.status === "active"
+                  ? "bg-success/20 text-success"
+                  : "bg-muted/20 text-muted"
+              }`}
+            >
+              {mystery.status}
+            </span>
+          </div>
+          {role === "keeper" && (
+            <button
+              onClick={toggleMysteryStatus}
+              disabled={togglingStatus}
+              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 ${
+                mystery.status === "active"
+                  ? "bg-success/20 text-success hover:bg-success/30"
+                  : "bg-accent/20 text-accent hover:bg-accent/30"
+              }`}
+            >
+              {mystery.status === "active" ? (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Mark Complete
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-4 h-4" />
+                  Reopen
+                </>
+              )}
+            </button>
+          )}
         </div>
         {mystery.description && (
           <p className="text-muted text-sm">{mystery.description}</p>
