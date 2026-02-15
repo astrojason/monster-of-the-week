@@ -29,7 +29,7 @@ export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
 
   const canEditTrackers = role === "keeper" || role === "player";
   const canUploadImage = role === "keeper" || role === "player";
-  const canEditDetails = role === "keeper";
+  const canEditDetails = role === "keeper" || role === "player";
 
   const updateField = async (field: string, value: number) => {
     try {
