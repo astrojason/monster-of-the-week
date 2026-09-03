@@ -58,7 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setRole(grantSnap.data().role as Role);
           setStatus("authorized");
 
-          if (firebaseUser.displayName && firebaseUser.displayName !== grantSnap.data().name) {
+          if (
+            firebaseUser.displayName &&
+            !grantSnap.data().nameSetByKeeper &&
+            firebaseUser.displayName !== grantSnap.data().name
+          ) {
             try {
               await updateDoc(grantRef, { name: firebaseUser.displayName });
             } catch (err) {

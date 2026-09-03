@@ -11,6 +11,7 @@ vi.mock("@/lib/auth", () => ({
 const getDocsMock = vi.fn();
 const setDocMock = vi.fn();
 const deleteDocMock = vi.fn();
+const updateDocMock = vi.fn();
 
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn((_db, ...segments) => segments.join("/")),
@@ -18,6 +19,7 @@ vi.mock("firebase/firestore", () => ({
   getDocs: (...args: unknown[]) => getDocsMock(...args),
   setDoc: (...args: unknown[]) => setDocMock(...args),
   deleteDoc: (...args: unknown[]) => deleteDocMock(...args),
+  updateDoc: (...args: unknown[]) => updateDocMock(...args),
   orderBy: vi.fn(),
   query: vi.fn((...args: unknown[]) => args),
 }));
@@ -41,8 +43,10 @@ describe("AdminPage", () => {
     getDocsMock.mockReset();
     setDocMock.mockReset();
     deleteDocMock.mockReset();
+    updateDocMock.mockReset();
     getDocsMock.mockResolvedValue(grantsSnap([]));
     setDocMock.mockResolvedValue(undefined);
+    updateDocMock.mockResolvedValue(undefined);
   });
 
   it("redirects non-authorized users to the login form", () => {
@@ -132,6 +136,103 @@ describe("AdminPage", () => {
         addedBy: "keeper@example.com",
       })
     );
+  });
+
+  it("includes a keeper-typed name and marks it keeper-set when adding a grant", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByLabelText(/email/i), "new.player@example.com");
+    await userEvent.type(screen.getByLabelText(/^name/i), "New Player");
+    await userEvent.click(screen.getByRole("button", { name: /add/i }));
+
+    await waitFor(() => expect(setDocMock).toHaveBeenCalled());
+    expect(setDocMock).toHaveBeenCalledWith(
+      "grants/new.player@example.com",
+      expect.objectContaining({ name: "New Player", nameSetByKeeper: true })
+    );
+  });
+
+  it("leaves a new grant's name unset (and unlocked) when no name is typed", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByLabelText(/email/i), "new.player@example.com");
+    await userEvent.click(screen.getByRole("button", { name: /add/i }));
+
+    await waitFor(() => expect(setDocMock).toHaveBeenCalled());
+    expect(setDocMock).toHaveBeenCalledWith(
+      "grants/new.player@example.com",
+      expect.objectContaining({ name: "", nameSetByKeeper: false })
+    );
+  });
+
+  it("lets the keeper edit an existing grant's name inline", async () => {
+    getDocsMock.mockResolvedValue(grantsSnap([{ id: "steve@example.com", role: "player" }]));
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await waitFor(() => expect(screen.getByText("steve@example.com")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /edit name for steve@example.com/i }));
+    const nameInput = screen.getByLabelText(/edit name/i);
+    await userEvent.type(nameInput, "Steve Smith");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled());
+    expect(updateDocMock).toHaveBeenCalledWith("grants/steve@example.com", {
+      name: "Steve Smith",
+      nameSetByKeeper: true,
+    });
+  });
+
+  it("unlocks the name when the keeper clears it via inline edit", async () => {
+    getDocsMock.mockResolvedValue(
+      grantsSnap([{ id: "steve@example.com", role: "player", name: "Steve Smith" }])
+    );
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await waitFor(() => expect(screen.getByText("Steve Smith")).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /edit name for steve@example.com/i }));
+    const nameInput = screen.getByLabelText(/edit name/i);
+    await userEvent.clear(nameInput);
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled());
+    expect(updateDocMock).toHaveBeenCalledWith("grants/steve@example.com", {
+      name: "",
+      nameSetByKeeper: false,
+    });
   });
 
   it("surfaces the full error message when loading grants fails", async () => {

@@ -182,6 +182,23 @@ describe("AuthProvider", () => {
     expect(updateDocMock).not.toHaveBeenCalled();
   });
 
+  it("does not overwrite a keeper-assigned name even if the display name differs", async () => {
+    getDocMock.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ role: "player", name: "Custom Name", nameSetByKeeper: true }),
+    });
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+    await act(async () => {
+      authStateCallback.current?.({ email: "steve@example.com", displayName: "Google Name" });
+    });
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authorized"));
+    expect(updateDocMock).not.toHaveBeenCalled();
+  });
+
   it("does not write to the grant doc when Firebase has no display name", async () => {
     getDocMock.mockResolvedValue({
       exists: () => true,

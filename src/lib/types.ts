@@ -55,4 +55,5 @@ export interface Grant {
   addedAt: number;
   addedBy: string;
   name?: string;
+  nameSetByKeeper?: boolean;
 }
