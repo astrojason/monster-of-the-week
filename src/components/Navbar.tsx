@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { Skull, BookOpen, LogOut, Shield, User, Crosshair, Users } from "lucide-react";
 
 export function Navbar() {
-  const { role, status, logout } = useAuth();
+  const { role, status, error, logout } = useAuth();
   const pathname = usePathname();
 
   if (status !== "authorized") return null;
@@ -16,65 +16,74 @@ export function Navbar() {
   const isAdmin = pathname.startsWith("/admin");
 
   return (
-    <nav className="border-b border-border bg-surface sticky top-0 z-50">
-      <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between h-14">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2 text-foreground hover:text-accent transition-colors">
-            <Skull className="w-5 h-5" />
-            <span className="font-bold text-sm">MotW Tracker</span>
-          </Link>
-          <div className="flex items-center gap-1">
-            <Link
-              href="/"
-              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
-                isHunters
-                  ? "bg-accent/15 text-accent font-medium"
-                  : "text-muted hover:text-foreground hover:bg-surface-hover"
-              }`}
-            >
-              <Crosshair className="w-4 h-4" />
-              Hunters
+    <>
+      <nav className="border-b border-border bg-surface sticky top-0 z-50">
+        <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between h-14">
+          <div className="flex items-center gap-6">
+            <Link href="/" className="flex items-center gap-2 text-foreground hover:text-accent transition-colors">
+              <Skull className="w-5 h-5" />
+              <span className="font-bold text-sm">MotW Tracker</span>
             </Link>
-            <Link
-              href="/mysteries"
-              className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
-                isMysteries
-                  ? "bg-accent/15 text-accent font-medium"
-                  : "text-muted hover:text-foreground hover:bg-surface-hover"
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              Mysteries
-            </Link>
-            {role === "keeper" && (
+            <div className="flex items-center gap-1">
               <Link
-                href="/admin"
+                href="/"
                 className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
-                  isAdmin
+                  isHunters
                     ? "bg-accent/15 text-accent font-medium"
                     : "text-muted hover:text-foreground hover:bg-surface-hover"
                 }`}
               >
-                <Users className="w-4 h-4" />
-                Admin
+                <Crosshair className="w-4 h-4" />
+                Hunters
               </Link>
-            )}
+              <Link
+                href="/mysteries"
+                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
+                  isMysteries
+                    ? "bg-accent/15 text-accent font-medium"
+                    : "text-muted hover:text-foreground hover:bg-surface-hover"
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                Mysteries
+              </Link>
+              {role === "keeper" && (
+                <Link
+                  href="/admin"
+                  className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
+                    isAdmin
+                      ? "bg-accent/15 text-accent font-medium"
+                      : "text-muted hover:text-foreground hover:bg-surface-hover"
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  Admin
+                </Link>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-border">
+              {role === "keeper" ? <Shield className="w-3 h-3 text-accent" /> : <User className="w-3 h-3 text-success" />}
+              {role === "keeper" ? "Keeper" : "Player"}
+            </span>
+            <button
+              onClick={() => logout()}
+              className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
+            >
+              <LogOut className="w-3 h-3" />
+              Logout
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-border">
-            {role === "keeper" ? <Shield className="w-3 h-3 text-accent" /> : <User className="w-3 h-3 text-success" />}
-            {role === "keeper" ? "Keeper" : "Player"}
-          </span>
-          <button
-            onClick={() => logout()}
-            className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
-          >
-            <LogOut className="w-3 h-3" />
-            Logout
-          </button>
+      </nav>
+      {error && (
+        <div className="border-b border-danger/30 bg-danger/10 px-4 py-2">
+          <pre className="container mx-auto max-w-7xl text-danger text-xs whitespace-pre-wrap break-words select-all">
+            {error}
+          </pre>
         </div>
-      </div>
-    </nav>
+      )}
+    </>
   );
 }

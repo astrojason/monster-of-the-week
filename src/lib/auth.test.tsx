@@ -23,9 +23,11 @@ vi.mock("firebase/auth", () => ({
 }));
 
 const getDocMock = vi.fn();
+const updateDocMock = vi.fn();
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((_db, ...segments) => segments.join("/")),
   getDoc: (...args: unknown[]) => getDocMock(...args),
+  updateDoc: (...args: unknown[]) => updateDocMock(...args),
 }));
 
 vi.mock("./firebase", () => ({
@@ -52,6 +54,8 @@ describe("AuthProvider", () => {
   beforeEach(() => {
     authStateCallback.current = null;
     getDocMock.mockReset();
+    updateDocMock.mockReset();
+    updateDocMock.mockResolvedValue(undefined);
     vi.mocked(signInWithPopup).mockReset();
     vi.mocked(signOut).mockReset();
   });
@@ -142,6 +146,75 @@ describe("AuthProvider", () => {
     });
     await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("unauthorized"));
     expect(screen.getByTestId("error").textContent).toBe("firestore is down");
+  });
+
+  it("syncs the Firebase display name into the grant doc when it differs", async () => {
+    getDocMock.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ role: "player", name: "Old Name" }),
+    });
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+    await act(async () => {
+      authStateCallback.current?.({ email: "steve@example.com", displayName: "Steve Smith" });
+    });
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authorized"));
+    expect(updateDocMock).toHaveBeenCalledWith("grants/steve@example.com", { name: "Steve Smith" });
+  });
+
+  it("does not write to the grant doc when the display name already matches", async () => {
+    getDocMock.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ role: "player", name: "Steve Smith" }),
+    });
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+    await act(async () => {
+      authStateCallback.current?.({ email: "steve@example.com", displayName: "Steve Smith" });
+    });
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authorized"));
+    expect(updateDocMock).not.toHaveBeenCalled();
+  });
+
+  it("does not write to the grant doc when Firebase has no display name", async () => {
+    getDocMock.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ role: "player" }),
+    });
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+    await act(async () => {
+      authStateCallback.current?.({ email: "steve@example.com", displayName: null });
+    });
+    await waitFor(() => expect(screen.getByTestId("status").textContent).toBe("authorized"));
+    expect(updateDocMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an error if the name sync fails, without dropping authorized status", async () => {
+    getDocMock.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ role: "player" }),
+    });
+    updateDocMock.mockRejectedValue(new Error("name sync denied"));
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+    await act(async () => {
+      authStateCallback.current?.({ email: "steve@example.com", displayName: "Steve Smith" });
+    });
+    await waitFor(() => expect(screen.getByTestId("error").textContent).toBe("name sync denied"));
+    expect(screen.getByTestId("status").textContent).toBe("authorized");
   });
 
   it("lowercases the email used for the grant lookup", async () => {

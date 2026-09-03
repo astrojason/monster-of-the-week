@@ -22,7 +22,9 @@ service cloud.firestore {
 
     match /grants/{grantEmail} {
       allow read: if isKeeper() || (isSignedIn() && email() == grantEmail);
-      allow write: if isKeeper();
+      allow create, delete: if isKeeper();
+      allow update: if isKeeper() || (
+        isSignedIn() && email() == grantEmail && onlyChanged(['name']));
     }
 
     match /hunters/{hunterId} {

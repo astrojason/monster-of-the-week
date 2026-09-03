@@ -27,6 +27,8 @@ export function PlayerEmailsField({ emails, onChange, playerGrants, grantsError 
 
   const suggestions = playerGrants.filter((g) => !emails.includes(g.email));
 
+  const labelFor = (email: string) => playerGrants.find((g) => g.email === email)?.name || email;
+
   return (
     <fieldset>
       <legend className="block text-xs text-muted mb-1">Played By (accounts)</legend>
@@ -38,7 +40,7 @@ export function PlayerEmailsField({ emails, onChange, playerGrants, grantsError 
               key={email}
               className="flex items-center justify-between bg-background border border-border rounded px-2 py-1 text-sm"
             >
-              <span>{email}</span>
+              <span>{labelFor(email)}</span>
               <button
                 type="button"
                 onClick={() => removeEmail(email)}
@@ -85,7 +87,7 @@ export function PlayerEmailsField({ emails, onChange, playerGrants, grantsError 
               onClick={() => addEmail(g.email)}
               className="text-xs bg-background border border-border rounded-full px-2 py-0.5 hover:border-accent transition-colors"
             >
-              {g.email}
+              {g.name || g.email}
             </button>
           ))}
         </div>

@@ -161,7 +161,7 @@ export default function AdminPage() {
                 ) : (
                   <User className="w-4 h-4 text-success" />
                 )}
-                <span>{grant.email}</span>
+                <span>{grant.name || grant.email}</span>
                 <span className="text-xs text-muted uppercase">{grant.role}</span>
               </div>
               <button

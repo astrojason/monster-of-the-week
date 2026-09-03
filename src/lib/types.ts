@@ -54,4 +54,5 @@ export interface Grant {
   role: "keeper" | "player";
   addedAt: number;
   addedBy: string;
+  name?: string;
 }

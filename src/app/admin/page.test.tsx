@@ -26,9 +26,12 @@ vi.mock("@/lib/firebase", () => ({ db: {} }));
 
 const mockedUseAuth = vi.mocked(useAuth);
 
-function grantsSnap(rows: { id: string; role: string }[]) {
+function grantsSnap(rows: { id: string; role: string; name?: string }[]) {
   return {
-    docs: rows.map((r) => ({ id: r.id, data: () => ({ email: r.id, role: r.role, addedAt: 0, addedBy: "x" }) })),
+    docs: rows.map((r) => ({
+      id: r.id,
+      data: () => ({ email: r.id, role: r.role, addedAt: 0, addedBy: "x", name: r.name }),
+    })),
   };
 }
 
@@ -86,6 +89,23 @@ describe("AdminPage", () => {
     render(<AdminPage />);
     await waitFor(() => expect(screen.getByText("a@example.com")).toBeInTheDocument());
     expect(screen.getByText("b@example.com")).toBeInTheDocument();
+  });
+
+  it("shows a granted player's name instead of their email when known", async () => {
+    getDocsMock.mockResolvedValue(
+      grantsSnap([{ id: "a@example.com", role: "keeper", name: "Ada Keeper" }])
+    );
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await waitFor(() => expect(screen.getByText("Ada Keeper")).toBeInTheDocument());
+    expect(screen.queryByText("a@example.com")).not.toBeInTheDocument();
   });
 
   it("adds a grant with setDoc using the lowercased email as the doc id", async () => {

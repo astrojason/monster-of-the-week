@@ -7,7 +7,7 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, googleProvider, db } from "./firebase";
 import type { Role } from "./types";
 
@@ -50,11 +50,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(firebaseUser);
 
+      const grantRef = doc(db, "grants", firebaseUser.email.toLowerCase());
+
       try {
-        const grantSnap = await getDoc(doc(db, "grants", firebaseUser.email.toLowerCase()));
+        const grantSnap = await getDoc(grantRef);
         if (grantSnap.exists()) {
           setRole(grantSnap.data().role as Role);
           setStatus("authorized");
+
+          if (firebaseUser.displayName && firebaseUser.displayName !== grantSnap.data().name) {
+            try {
+              await updateDoc(grantRef, { name: firebaseUser.displayName });
+            } catch (err) {
+              setError(err instanceof Error ? err.message : String(err));
+            }
+          }
         } else {
           setRole(null);
           setStatus("unauthorized");

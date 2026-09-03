@@ -57,4 +57,30 @@ describe("Navbar", () => {
     const link = screen.getByRole("link", { name: /admin/i });
     expect(link).toHaveAttribute("href", "/admin");
   });
+
+  it("shows a copyable error banner when the auth context reports a background error", () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "name sync denied: permission-denied",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<Navbar />);
+    expect(screen.getByText("name sync denied: permission-denied")).toBeInTheDocument();
+  });
+
+  it("shows no error banner when there is no error", () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    const { container } = render(<Navbar />);
+    expect(container.querySelector("pre")).not.toBeInTheDocument();
+  });
 });
