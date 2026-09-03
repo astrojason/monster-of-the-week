@@ -5,6 +5,7 @@ import { collection, addDoc, getDocs, orderBy, query } from "firebase/firestore"
 import { db } from "@/lib/firebase";
 import type { Grant, Hunter } from "@/lib/types";
 import { PLAYBOOK_LIST } from "@/lib/playbooks";
+import { PlayerEmailsField } from "./PlayerEmailsField";
 import { X, Plus } from "lucide-react";
 
 interface CreateHunterModalProps {
@@ -30,15 +31,6 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
   const [saving, setSaving] = useState(false);
   const [playerGrants, setPlayerGrants] = useState<Grant[]>([]);
   const [grantsError, setGrantsError] = useState("");
-
-  const togglePlayerEmail = (email: string) => {
-    setForm((prev) => ({
-      ...prev,
-      playerEmails: prev.playerEmails.includes(email)
-        ? prev.playerEmails.filter((e) => e !== email)
-        : [...prev.playerEmails, email],
-    }));
-  };
 
   useEffect(() => {
     getDocs(query(collection(db, "grants"), orderBy("email")))
@@ -138,33 +130,12 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
             </div>
           </div>
 
-          <fieldset>
-            <legend className="block text-xs text-muted mb-1">Played By (accounts)</legend>
-            {playerGrants.length === 0 ? (
-              <p className="text-xs text-muted">No player accounts granted yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {playerGrants.map((g) => (
-                  <label key={g.email} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={form.playerEmails.includes(g.email)}
-                      onChange={() => togglePlayerEmail(g.email)}
-                    />
-                    {g.email}
-                  </label>
-                ))}
-              </div>
-            )}
-            <p className="text-xs text-muted mt-1">
-              Links this hunter to one or more player accounts so only they (and the Keeper) can edit it.
-            </p>
-            {grantsError && (
-              <pre className="text-danger text-xs bg-surface border border-border rounded p-2 mt-1 whitespace-pre-wrap break-words select-all">
-                {grantsError}
-              </pre>
-            )}
-          </fieldset>
+          <PlayerEmailsField
+            emails={form.playerEmails}
+            onChange={(playerEmails) => setForm({ ...form, playerEmails })}
+            playerGrants={playerGrants}
+            grantsError={grantsError}
+          />
 
           <div>
             <label className="block text-xs text-muted mb-1">Stats</label>

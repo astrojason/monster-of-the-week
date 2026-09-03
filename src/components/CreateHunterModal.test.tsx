@@ -34,29 +34,64 @@ describe("CreateHunterModal account assignment", () => {
     );
   });
 
-  it("offers only granted players as checkboxes", async () => {
+  it("offers granted players as quick-add suggestions but not the keeper", async () => {
     render(<CreateHunterModal onClose={vi.fn()} onCreate={vi.fn()} />);
     await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
     const group = screen.getByRole("group", { name: /played by \(accounts\)/i });
-    expect(within(group).getByLabelText("steve@example.com")).toBeInTheDocument();
-    expect(within(group).getByLabelText("amy@example.com")).toBeInTheDocument();
-    expect(within(group).queryByLabelText("keeper@example.com")).not.toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "steve@example.com" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "amy@example.com" })).toBeInTheDocument();
+    expect(within(group).queryByRole("button", { name: "keeper@example.com" })).not.toBeInTheDocument();
   });
 
-  it("creates the hunter with every checked playerEmail", async () => {
+  it("lets you type an email that hasn't been granted access yet", async () => {
+    render(<CreateHunterModal onClose={vi.fn()} onCreate={vi.fn()} />);
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
+
+    const group = screen.getByRole("group", { name: /played by \(accounts\)/i });
+    await userEvent.type(within(group).getByLabelText(/add player email/i), "new-player@example.com");
+    await userEvent.click(within(group).getByRole("button", { name: /^add$/i }));
+
+    expect(within(group).getByText("new-player@example.com")).toBeInTheDocument();
+  });
+
+  it("creates the hunter with a typed email plus a quick-added one", async () => {
     render(<CreateHunterModal onClose={vi.fn()} onCreate={vi.fn()} />);
     await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
 
     await userEvent.type(screen.getByLabelText(/^name/i), "New Hunter");
     await userEvent.type(screen.getByLabelText(/played by \*/i), "Steve & Amy");
-    await userEvent.click(screen.getByLabelText("steve@example.com"));
-    await userEvent.click(screen.getByLabelText("amy@example.com"));
+
+    const group = screen.getByRole("group", { name: /played by \(accounts\)/i });
+    await userEvent.type(within(group).getByLabelText(/add player email/i), "New-Player@Example.com");
+    await userEvent.click(within(group).getByRole("button", { name: /^add$/i }));
+    await userEvent.click(within(group).getByRole("button", { name: "steve@example.com" }));
+
     await userEvent.click(screen.getByRole("button", { name: /create hunter/i }));
 
     await waitFor(() => expect(addDocMock).toHaveBeenCalled());
     expect(addDocMock).toHaveBeenCalledWith(
       "hunters",
-      expect.objectContaining({ playerEmails: ["steve@example.com", "amy@example.com"] })
+      expect.objectContaining({
+        playerEmails: ["new-player@example.com", "steve@example.com"],
+      })
     );
+  });
+
+  it("lets you remove an assigned email", async () => {
+    render(<CreateHunterModal onClose={vi.fn()} onCreate={vi.fn()} />);
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
+
+    const group = screen.getByRole("group", { name: /played by \(accounts\)/i });
+    await userEvent.click(within(group).getByRole("button", { name: "steve@example.com" }));
+    expect(
+      within(group).getByRole("button", { name: /remove steve@example.com/i })
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(group).getByRole("button", { name: /remove steve@example.com/i }));
+    expect(
+      within(group).queryByRole("button", { name: /remove steve@example.com/i })
+    ).not.toBeInTheDocument();
+    // removing it makes it available again as a quick-add suggestion
+    expect(within(group).getByRole("button", { name: "steve@example.com" })).toBeInTheDocument();
   });
 });

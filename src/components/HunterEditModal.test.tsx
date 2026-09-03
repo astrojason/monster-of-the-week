@@ -84,14 +84,40 @@ describe("HunterEditModal account assignment", () => {
     await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
 
     const group = screen.getByRole("group", { name: /played by \(accounts\)/i });
-    expect(within(group).getByLabelText("steve@example.com")).toBeChecked();
-    await userEvent.click(within(group).getByLabelText("amy@example.com"));
+    expect(within(group).getByText("steve@example.com")).toBeInTheDocument();
+    await userEvent.click(within(group).getByRole("button", { name: "amy@example.com" }));
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => expect(updateDocMock).toHaveBeenCalled());
     expect(updateDocMock).toHaveBeenCalledWith(
       "hunters/h1",
       expect.objectContaining({ playerEmails: ["steve@example.com", "amy@example.com"] })
+    );
+  });
+
+  it("lets the keeper type in an email that hasn't been granted yet", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(
+      <HunterEditModal hunter={makeHunter()} onClose={vi.fn()} onSave={vi.fn()} />
+    );
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
+
+    const group = screen.getByRole("group", { name: /played by \(accounts\)/i });
+    await userEvent.type(within(group).getByLabelText(/add player email/i), "new-player@example.com");
+    await userEvent.click(within(group).getByRole("button", { name: /^add$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled());
+    expect(updateDocMock).toHaveBeenCalledWith(
+      "hunters/h1",
+      expect.objectContaining({ playerEmails: ["new-player@example.com"] })
     );
   });
 
