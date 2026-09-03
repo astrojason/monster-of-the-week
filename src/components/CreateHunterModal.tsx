@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { collection, addDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { collection, addDoc, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Hunter } from "@/lib/types";
+import type { Grant, Hunter } from "@/lib/types";
 import { PLAYBOOK_LIST } from "@/lib/playbooks";
 import { X, Plus } from "lucide-react";
 
@@ -17,6 +17,7 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
     name: "",
     playbook: PLAYBOOK_LIST[0],
     playedBy: "",
+    playerEmail: "",
     charm: 0,
     cool: 0,
     sharp: 0,
@@ -27,6 +28,17 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
     notes: "",
   });
   const [saving, setSaving] = useState(false);
+  const [playerGrants, setPlayerGrants] = useState<Grant[]>([]);
+  const [grantsError, setGrantsError] = useState("");
+
+  useEffect(() => {
+    getDocs(query(collection(db, "grants"), orderBy("email")))
+      .then((snap) => {
+        const grants = snap.docs.map((d) => d.data() as Grant);
+        setPlayerGrants(grants.filter((g) => g.role === "player"));
+      })
+      .catch((err) => setGrantsError(err instanceof Error ? err.message : String(err)));
+  }, []);
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.playedBy.trim()) {
@@ -56,6 +68,7 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
         keeperNotes: "",
         imageUrl: "",
         imageData: "",
+        playerEmail: form.playerEmail,
       };
       const docRef = await addDoc(collection(db, "hunters"), hunterData);
       onCreate({ id: docRef.id, ...hunterData });
@@ -80,8 +93,9 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs text-muted mb-1">Name *</label>
+            <label htmlFor="hunter-name" className="block text-xs text-muted mb-1">Name *</label>
             <input
+              id="hunter-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
@@ -91,8 +105,9 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-muted mb-1">Playbook</label>
+              <label htmlFor="hunter-playbook" className="block text-xs text-muted mb-1">Playbook</label>
               <select
+                id="hunter-playbook"
                 value={form.playbook}
                 onChange={(e) => setForm({ ...form, playbook: e.target.value })}
                 className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
@@ -103,14 +118,40 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
               </select>
             </div>
             <div>
-              <label className="block text-xs text-muted mb-1">Played By *</label>
+              <label htmlFor="hunter-played-by" className="block text-xs text-muted mb-1">Played By *</label>
               <input
+                id="hunter-played-by"
                 value={form.playedBy}
                 onChange={(e) => setForm({ ...form, playedBy: e.target.value })}
                 className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
                 placeholder="Player name"
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="hunter-player-email" className="block text-xs text-muted mb-1">
+              Played By (account)
+            </label>
+            <select
+              id="hunter-player-email"
+              value={form.playerEmail}
+              onChange={(e) => setForm({ ...form, playerEmail: e.target.value })}
+              className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            >
+              <option value="">Unassigned</option>
+              {playerGrants.map((g) => (
+                <option key={g.email} value={g.email}>{g.email}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted mt-1">
+              Links this hunter to a player&apos;s account so only they can edit it.
+            </p>
+            {grantsError && (
+              <pre className="text-danger text-xs bg-surface border border-border rounded p-2 mt-1 whitespace-pre-wrap break-words select-all">
+                {grantsError}
+              </pre>
+            )}
           </div>
 
           <div>

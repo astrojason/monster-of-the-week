@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { doc, updateDoc, collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import type { Hunter } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+import type { Grant, Hunter } from "@/lib/types";
 import { PLAYBOOK_LIST } from "@/lib/playbooks";
 import { X, Save } from "lucide-react";
 
@@ -14,10 +15,12 @@ interface HunterEditModalProps {
 }
 
 export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProps) {
+  const { role } = useAuth();
   const [form, setForm] = useState({
     name: hunter.name,
     playbook: hunter.playbook,
     playedBy: hunter.playedBy,
+    playerEmail: hunter.playerEmail || "",
     charm: hunter.stats.charm,
     cool: hunter.stats.cool,
     sharp: hunter.stats.sharp,
@@ -28,6 +31,18 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
     notes: hunter.notes,
   });
   const [saving, setSaving] = useState(false);
+  const [playerGrants, setPlayerGrants] = useState<Grant[]>([]);
+  const [grantsError, setGrantsError] = useState("");
+
+  useEffect(() => {
+    if (role !== "keeper") return;
+    getDocs(query(collection(db, "grants"), orderBy("email")))
+      .then((snap) => {
+        const grants = snap.docs.map((d) => d.data() as Grant);
+        setPlayerGrants(grants.filter((g) => g.role === "player"));
+      })
+      .catch((err) => setGrantsError(err instanceof Error ? err.message : String(err)));
+  }, [role]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -47,6 +62,9 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
         gear: form.gear.split(",").map((s) => s.trim()).filter(Boolean),
         notes: form.notes,
       };
+      if (role === "keeper") {
+        updated.playerEmail = form.playerEmail;
+      }
       await updateDoc(doc(db, "hunters", hunter.id), updated);
       onSave({ ...hunter, ...updated } as Hunter);
     } catch (err) {
@@ -98,6 +116,33 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
               />
             </div>
           </div>
+
+          {role === "keeper" && (
+            <div>
+              <label htmlFor="hunter-edit-player-email" className="block text-xs text-muted mb-1">
+                Played By (account)
+              </label>
+              <select
+                id="hunter-edit-player-email"
+                value={form.playerEmail}
+                onChange={(e) => setForm({ ...form, playerEmail: e.target.value })}
+                className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              >
+                <option value="">Unassigned</option>
+                {playerGrants.map((g) => (
+                  <option key={g.email} value={g.email}>{g.email}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted mt-1">
+                Links this hunter to a player&apos;s account so only they can edit it.
+              </p>
+              {grantsError && (
+                <pre className="text-danger text-xs bg-surface border border-border rounded p-2 mt-1 whitespace-pre-wrap break-words select-all">
+                  {grantsError}
+                </pre>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs text-muted mb-1">Stats</label>

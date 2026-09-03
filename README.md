@@ -85,5 +85,5 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Access is granted per Google account via the `grants` collection (managed from `/admin` by a Keeper):
 
-- **Player** - View all hunters, toggle Luck/Harm/Experience, edit hunter details, upload images, edit player notes
-- **Keeper** - Full access: everything a Player can do, plus create hunters/mysteries/sessions, edit mystery/session metadata, edit Keeper-only notes, and manage grants
+- **Player** - View all hunters; edit trackers, details, image, and player notes only on the hunter assigned to their account (set via "Played By (account)" on the hunter, keeper-only field)
+- **Keeper** - Full access: everything a Player can do on every hunter, plus create hunters/mysteries/sessions, edit mystery/session metadata, edit Keeper-only notes, assign hunters to accounts, and manage grants

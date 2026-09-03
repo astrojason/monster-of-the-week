@@ -28,9 +28,12 @@ service cloud.firestore {
     match /hunters/{hunterId} {
       allow read: if isGranted();
       allow create, delete: if isKeeper();
-      allow update: if isKeeper() || (isGranted() && onlyChanged(
-        ['name', 'playbook', 'playedBy', 'stats', 'moves', 'gear', 'notes',
-         'luck', 'harm', 'experience', 'imageUrl', 'imageData', 'playerNotes']));
+      allow update: if isKeeper() || (
+        isGranted() && myRole() == 'player' &&
+        resource.data.playerEmail == email() &&
+        onlyChanged(
+          ['name', 'playbook', 'playedBy', 'stats', 'moves', 'gear', 'notes',
+           'luck', 'harm', 'experience', 'imageUrl', 'imageData', 'playerNotes']));
     }
 
     match /mysteries/{mysteryId} {

@@ -16,7 +16,7 @@ interface HunterCardProps {
 }
 
 export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [editing, setEditing] = useState(false);
   const [editingPlayerNotes, setEditingPlayerNotes] = useState(false);
   const [editingKeeperNotes, setEditingKeeperNotes] = useState(false);
@@ -27,9 +27,12 @@ export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
   const isDoomed = hunter.luck >= 7;
   const canLevelUp = hunter.experience >= 5;
 
-  const canEditTrackers = role === "keeper" || role === "player";
-  const canUploadImage = role === "keeper" || role === "player";
-  const canEditDetails = role === "keeper" || role === "player";
+  const isOwnHunter =
+    !!user?.email && !!hunter.playerEmail && user.email.toLowerCase() === hunter.playerEmail.toLowerCase();
+  const canEditHunter = role === "keeper" || (role === "player" && isOwnHunter);
+  const canEditTrackers = canEditHunter;
+  const canUploadImage = canEditHunter;
+  const canEditDetails = canEditHunter;
 
   const updateField = async (field: string, value: number) => {
     try {
@@ -199,9 +202,10 @@ export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
                 <MessageSquare className="w-3 h-3" />
                 Player Notes
               </span>
-              {!editingPlayerNotes && (
+              {!editingPlayerNotes && canEditHunter && (
                 <button
                   onClick={() => { setPlayerNotesDraft(hunter.playerNotes || ""); setEditingPlayerNotes(true); }}
+                  aria-label="Edit player notes"
                   className="text-xs text-accent hover:text-accent-hover"
                 >
                   Edit

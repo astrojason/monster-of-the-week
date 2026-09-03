@@ -22,6 +22,7 @@ export interface Hunter {
   keeperNotes: string;
   imageUrl: string;
   imageData: string;
+  playerEmail: string;
 }
 
 export interface Mystery {
