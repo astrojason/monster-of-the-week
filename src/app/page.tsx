@@ -11,15 +11,15 @@ import { CreateHunterModal } from "@/components/CreateHunterModal";
 import { Plus, Loader2 } from "lucide-react";
 
 export default function HomePage() {
-  const { role } = useAuth();
+  const { role, status } = useAuth();
   const [hunters, setHunters] = useState<Hunter[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
-    if (!role) return;
+    if (status !== "authorized") return;
     loadHunters();
-  }, [role]);
+  }, [status]);
 
   const loadHunters = async () => {
     try {
@@ -34,7 +34,7 @@ export default function HomePage() {
     }
   };
 
-  if (!role) return <LoginForm />;
+  if (status !== "authorized") return <LoginForm />;
 
   if (loading) {
     return (

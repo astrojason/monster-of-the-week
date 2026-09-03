@@ -9,7 +9,7 @@ A dark-themed campaign tracker for the Monster of the Week TTRPG. Track hunters,
 - **Hunter Images** - Upload and manage hunter portraits with client-side compression
 - **Mysteries & Sessions** - Organize your campaign into mysteries with session notes
 - **Transcript Rendering** - Upload markdown transcripts and view them formatted in-app
-- **Two-tier Auth** - Player (limited) and Keeper (full access) password levels
+- **Google Sign-In + Grants** - Real per-person auth via Firebase Auth; a Keeper grants Player or Keeper access to specific Google accounts from an in-app admin screen
 
 ## Tech Stack
 
@@ -30,8 +30,9 @@ npm install
 ### 2. Firebase Setup
 
 1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable **Firestore Database** (start in test mode or configure rules below)
-3. Get your Firebase config from Project Settings > General > Your apps > Web app
+2. Enable **Firestore Database**
+3. Enable **Authentication** > Sign-in method > **Google**
+4. Get your Firebase config from Project Settings > General > Your apps > Web app
 
 ### 3. Environment Variables
 
@@ -41,28 +42,23 @@ Copy `.env.local.example` to `.env.local` and fill in your Firebase config:
 cp .env.local.example .env.local
 ```
 
-Set your player and keeper passwords in `.env.local`.
+### 4. Firestore Security Rules
 
-### 4. Firebase Security Rules
+Deploy the rules in `firestore.rules` (via `firebase deploy --only firestore:rules`, or paste them into Firestore > Rules in the console). They require every reader/writer to be signed in with Google *and* have a matching document in the `grants` collection; a Keeper can additionally write anything, a Player is restricted to specific fields.
 
-#### Firestore Rules
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}
-```
-
-> **Note:** These are permissive rules suitable for a private campaign tracker. For production with public access, add proper authentication and restrict writes.
->
 > **Storage:** Not required. Images are stored as base64 in Firestore and transcripts are stored as text in session documents.
 
-### 5. Seed Initial Hunters
+### 5. Bootstrap the first Keeper
+
+Nobody can use the in-app admin screen (`/admin`) until at least one `grants` document exists, so create the first one by hand in the Firestore console **before** deploying the rules above:
+
+- Collection: `grants`
+- Document ID: your Google account's email address, lowercased (e.g. `you@example.com`)
+- Fields: `{ email: "you@example.com", role: "keeper", addedAt: <any number>, addedBy: "bootstrap" }`
+
+After that, sign in with Google in the app and use the Admin page to grant access to your players.
+
+### 6. Seed Initial Hunters
 
 ```bash
 npm run seed
@@ -70,7 +66,7 @@ npm run seed
 
 This creates the 5 starting hunters: Benny (Gumshoe), Tennyson (Celebrity), Tracy (Mundane), Alma (Spooky), and Sol (Forged).
 
-### 6. Run Development Server
+### 7. Run Development Server
 
 ```bash
 npm run dev
@@ -87,5 +83,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Roles
 
-- **Player Password** - View all hunters, toggle Luck/Harm/Experience on any hunter, upload images
-- **Keeper Password** - Full access: edit all hunter details, create hunters, manage mysteries/sessions, upload transcripts
+Access is granted per Google account via the `grants` collection (managed from `/admin` by a Keeper):
+
+- **Player** - View all hunters, toggle Luck/Harm/Experience, edit hunter details, upload images, edit player notes
+- **Keeper** - Full access: everything a Player can do, plus create hunters/mysteries/sessions, edit mystery/session metadata, edit Keeper-only notes, and manage grants

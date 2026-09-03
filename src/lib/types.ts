@@ -47,3 +47,10 @@ export interface Session {
 }
 
 export type Role = "player" | "keeper" | null;
+
+export interface Grant {
+  email: string;
+  role: "keeper" | "player";
+  addedAt: number;
+  addedBy: string;
+}

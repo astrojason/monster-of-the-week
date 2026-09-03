@@ -10,16 +10,16 @@ import Link from "next/link";
 import { BookOpen, Plus, Loader2, CheckCircle, Clock, X, Save, Edit } from "lucide-react";
 
 export default function MysteriesPage() {
-  const { role } = useAuth();
+  const { role, status } = useAuth();
   const [mysteries, setMysteries] = useState<(Mystery & { sessionCount: number })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!role) return;
+    if (status !== "authorized") return;
     loadMysteries();
-  }, [role]);
+  }, [status]);
 
   const loadMysteries = async () => {
     try {
@@ -44,7 +44,7 @@ export default function MysteriesPage() {
     }
   };
 
-  if (!role) return <LoginForm />;
+  if (status !== "authorized") return <LoginForm />;
 
   if (loading) {
     return (

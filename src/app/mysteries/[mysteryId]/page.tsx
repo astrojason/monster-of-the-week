@@ -35,7 +35,7 @@ export default function MysteryDetailPage({
   params: Promise<{ mysteryId: string }>;
 }) {
   const { mysteryId } = use(params);
-  const { role } = useAuth();
+  const { role, status } = useAuth();
   const [mystery, setMystery] = useState<Mystery | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,9 +57,9 @@ export default function MysteryDetailPage({
   };
 
   useEffect(() => {
-    if (!role) return;
+    if (status !== "authorized") return;
     loadData();
-  }, [role, mysteryId]);
+  }, [status, mysteryId]);
 
   const loadData = async () => {
     try {
@@ -82,7 +82,7 @@ export default function MysteryDetailPage({
     }
   };
 
-  if (!role) return <LoginForm />;
+  if (status !== "authorized") return <LoginForm />;
 
   if (loading) {
     return (

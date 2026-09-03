@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { Skull, BookOpen, LogOut, Shield, User, Crosshair } from "lucide-react";
+import { Skull, BookOpen, LogOut, Shield, User, Crosshair, Users } from "lucide-react";
 
 export function Navbar() {
-  const { role, logout } = useAuth();
+  const { role, status, logout } = useAuth();
   const pathname = usePathname();
 
-  if (!role) return null;
+  if (status !== "authorized") return null;
 
   const isHunters = pathname === "/";
   const isMysteries = pathname.startsWith("/mysteries");
+  const isAdmin = pathname.startsWith("/admin");
 
   return (
     <nav className="border-b border-border bg-surface sticky top-0 z-50">
@@ -45,6 +46,19 @@ export function Navbar() {
               <BookOpen className="w-4 h-4" />
               Mysteries
             </Link>
+            {role === "keeper" && (
+              <Link
+                href="/admin"
+                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
+                  isAdmin
+                    ? "bg-accent/15 text-accent font-medium"
+                    : "text-muted hover:text-foreground hover:bg-surface-hover"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Admin
+              </Link>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -53,7 +67,7 @@ export function Navbar() {
             {role === "keeper" ? "Keeper" : "Player"}
           </span>
           <button
-            onClick={logout}
+            onClick={() => logout()}
             className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors"
           >
             <LogOut className="w-3 h-3" />

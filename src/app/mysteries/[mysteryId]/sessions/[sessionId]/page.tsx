@@ -31,7 +31,7 @@ export default function SessionDetailPage({
   params: Promise<{ mysteryId: string; sessionId: string }>;
 }) {
   const { mysteryId, sessionId } = use(params);
-  const { role } = useAuth();
+  const { role, status } = useAuth();
   const [mystery, setMystery] = useState<Mystery | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,9 +39,9 @@ export default function SessionDetailPage({
   const [editingSession, setEditingSession] = useState(false);
 
   useEffect(() => {
-    if (!role) return;
+    if (status !== "authorized") return;
     loadData();
-  }, [role, mysteryId, sessionId]);
+  }, [status, mysteryId, sessionId]);
 
   const loadData = async () => {
     try {
@@ -68,7 +68,7 @@ export default function SessionDetailPage({
 
   const sessionDocRef = doc(db, "mysteries", mysteryId, "sessions", sessionId);
 
-  if (!role) return <LoginForm />;
+  if (status !== "authorized") return <LoginForm />;
 
   if (loading) {
     return (

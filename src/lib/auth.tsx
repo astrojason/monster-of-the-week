@@ -1,51 +1,96 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  type User,
+} from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, googleProvider, db } from "./firebase";
 import type { Role } from "./types";
 
+export type AuthStatus = "loading" | "signed-out" | "unauthorized" | "authorized";
+
 interface AuthContextType {
+  user: User | null;
   role: Role;
-  login: (password: string) => boolean;
-  logout: () => void;
+  status: AuthStatus;
+  error: string;
+  signIn: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
+  user: null,
   role: null,
-  login: () => false,
-  logout: () => {},
+  status: "loading",
+  error: "",
+  signIn: async () => {},
+  logout: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role>(null);
+  const [status, setStatus] = useState<AuthStatus>("loading");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const stored = localStorage.getItem("motw-role");
-    if (stored === "player" || stored === "keeper") {
-      setRole(stored);
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setError("");
+
+      if (!firebaseUser || !firebaseUser.email) {
+        setUser(null);
+        setRole(null);
+        setStatus("signed-out");
+        return;
+      }
+
+      setUser(firebaseUser);
+
+      try {
+        const grantSnap = await getDoc(doc(db, "grants", firebaseUser.email.toLowerCase()));
+        if (grantSnap.exists()) {
+          setRole(grantSnap.data().role as Role);
+          setStatus("authorized");
+        } else {
+          setRole(null);
+          setStatus("unauthorized");
+        }
+      } catch (err) {
+        setRole(null);
+        setStatus("unauthorized");
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
-  const login = (password: string): boolean => {
-    if (password === process.env.NEXT_PUBLIC_KEEPER_PASSWORD) {
-      setRole("keeper");
-      localStorage.setItem("motw-role", "keeper");
-      return true;
+  const signIn = async () => {
+    setError("");
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
-    if (password === process.env.NEXT_PUBLIC_PLAYER_PASSWORD) {
-      setRole("player");
-      localStorage.setItem("motw-role", "player");
-      return true;
-    }
-    return false;
   };
 
-  const logout = () => {
-    setRole(null);
-    localStorage.removeItem("motw-role");
+  const logout = async () => {
+    setError("");
+    try {
+      await firebaseSignOut(auth);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      throw err;
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ role, login, logout }}>
+    <AuthContext.Provider value={{ user, role, status, error, signIn, logout }}>
       {children}
     </AuthContext.Provider>
   );

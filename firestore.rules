@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isGranted() {
+      return isSignedIn() && exists(/databases/$(database)/documents/grants/$(email()));
+    }
+    function myRole() {
+      return get(/databases/$(database)/documents/grants/$(email())).data.role;
+    }
+    function isKeeper() {
+      return isGranted() && myRole() == 'keeper';
+    }
+    function onlyChanged(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    match /grants/{grantEmail} {
+      allow read: if isKeeper() || (isSignedIn() && email() == grantEmail);
+      allow write: if isKeeper();
+    }
+
+    match /hunters/{hunterId} {
+      allow read: if isGranted();
+      allow create, delete: if isKeeper();
+      allow update: if isKeeper() || (isGranted() && onlyChanged(
+        ['name', 'playbook', 'playedBy', 'stats', 'moves', 'gear', 'notes',
+         'luck', 'harm', 'experience', 'imageUrl', 'imageData', 'playerNotes']));
+    }
+
+    match /mysteries/{mysteryId} {
+      allow read: if isGranted();
+      allow create, delete: if isKeeper();
+      allow update: if isKeeper() || (isGranted() && onlyChanged(['playerNotes']));
+
+      match /sessions/{sessionId} {
+        allow read: if isGranted();
+        allow create, delete: if isKeeper();
+        allow update: if isKeeper() || (isGranted() && onlyChanged(['playerNotes']));
+      }
+    }
+  }
+}
