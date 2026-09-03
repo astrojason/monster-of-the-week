@@ -42,7 +42,7 @@ function makeHunter(overrides: Partial<Hunter> = {}): Hunter {
     keeperNotes: "",
     imageUrl: "",
     imageData: "",
-    playerEmail: "",
+    playerEmails: [],
     ...overrides,
   };
 }
@@ -63,38 +63,50 @@ describe("HunterCard ownership permissions", () => {
     mockedUseAuth.mockReset();
   });
 
-  it("lets the keeper edit any hunter regardless of playerEmail", () => {
+  it("lets the keeper edit any hunter regardless of playerEmails", () => {
     authAs("keeper", "keeper@example.com");
     render(
-      <HunterCard hunter={makeHunter({ playerEmail: "someone-else@example.com" })} onUpdate={vi.fn()} />
+      <HunterCard hunter={makeHunter({ playerEmails: ["someone-else@example.com"] })} onUpdate={vi.fn()} />
     );
     expect(screen.getByTitle("Edit hunter")).toBeInTheDocument();
     expect(screen.getByTestId("image-upload")).toBeInTheDocument();
     expect(screen.getByLabelText("Edit player notes")).toBeInTheDocument();
   });
 
-  it("lets a player edit their own assigned hunter", () => {
+  it("lets a player edit a hunter they're assigned to", () => {
     authAs("player", "steve@example.com");
     render(
-      <HunterCard hunter={makeHunter({ playerEmail: "steve@example.com" })} onUpdate={vi.fn()} />
+      <HunterCard hunter={makeHunter({ playerEmails: ["steve@example.com"] })} onUpdate={vi.fn()} />
     );
     expect(screen.getByTitle("Edit hunter")).toBeInTheDocument();
     expect(screen.getByTestId("image-upload")).toBeInTheDocument();
     expect(screen.getByLabelText("Edit player notes")).toBeInTheDocument();
   });
 
-  it("matches the assigned email case-insensitively", () => {
+  it("lets any of several co-assigned players edit the hunter", () => {
+    authAs("player", "second@example.com");
+    render(
+      <HunterCard
+        hunter={makeHunter({ playerEmails: ["first@example.com", "second@example.com", "third@example.com"] })}
+        onUpdate={vi.fn()}
+      />
+    );
+    expect(screen.getByTitle("Edit hunter")).toBeInTheDocument();
+    expect(screen.getByTestId("image-upload")).toBeInTheDocument();
+  });
+
+  it("matches assigned emails case-insensitively", () => {
     authAs("player", "Steve@Example.com");
     render(
-      <HunterCard hunter={makeHunter({ playerEmail: "steve@example.com" })} onUpdate={vi.fn()} />
+      <HunterCard hunter={makeHunter({ playerEmails: ["steve@example.com"] })} onUpdate={vi.fn()} />
     );
     expect(screen.getByTitle("Edit hunter")).toBeInTheDocument();
   });
 
-  it("blocks a player from editing a hunter assigned to someone else", () => {
+  it("blocks a player from editing a hunter assigned to other people only", () => {
     authAs("player", "steve@example.com");
     render(
-      <HunterCard hunter={makeHunter({ playerEmail: "other@example.com" })} onUpdate={vi.fn()} />
+      <HunterCard hunter={makeHunter({ playerEmails: ["other@example.com"] })} onUpdate={vi.fn()} />
     );
     expect(screen.queryByTitle("Edit hunter")).not.toBeInTheDocument();
     expect(screen.queryByTestId("image-upload")).not.toBeInTheDocument();
@@ -103,7 +115,7 @@ describe("HunterCard ownership permissions", () => {
 
   it("blocks a player from editing an unassigned hunter", () => {
     authAs("player", "steve@example.com");
-    render(<HunterCard hunter={makeHunter({ playerEmail: "" })} onUpdate={vi.fn()} />);
+    render(<HunterCard hunter={makeHunter({ playerEmails: [] })} onUpdate={vi.fn()} />);
     expect(screen.queryByTitle("Edit hunter")).not.toBeInTheDocument();
     expect(screen.queryByTestId("image-upload")).not.toBeInTheDocument();
   });
@@ -111,7 +123,7 @@ describe("HunterCard ownership permissions", () => {
   it("disables trackers for a player on a hunter that isn't theirs", () => {
     authAs("player", "steve@example.com");
     render(
-      <HunterCard hunter={makeHunter({ playerEmail: "other@example.com", luck: 2 })} onUpdate={vi.fn()} />
+      <HunterCard hunter={makeHunter({ playerEmails: ["other@example.com"], luck: 2 })} onUpdate={vi.fn()} />
     );
     const luckButtons = screen.getAllByRole("button").filter((b) => b.hasAttribute("disabled"));
     expect(luckButtons.length).toBeGreaterThan(0);

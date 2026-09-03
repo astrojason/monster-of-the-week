@@ -30,7 +30,7 @@ service cloud.firestore {
       allow create, delete: if isKeeper();
       allow update: if isKeeper() || (
         isGranted() && myRole() == 'player' &&
-        resource.data.playerEmail == email() &&
+        email() in resource.data.playerEmails &&
         onlyChanged(
           ['name', 'playbook', 'playedBy', 'stats', 'moves', 'gear', 'notes',
            'luck', 'harm', 'experience', 'imageUrl', 'imageData', 'playerNotes']));

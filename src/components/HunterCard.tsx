@@ -28,7 +28,8 @@ export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
   const canLevelUp = hunter.experience >= 5;
 
   const isOwnHunter =
-    !!user?.email && !!hunter.playerEmail && user.email.toLowerCase() === hunter.playerEmail.toLowerCase();
+    !!user?.email &&
+    (hunter.playerEmails || []).some((email) => email.toLowerCase() === user.email!.toLowerCase());
   const canEditHunter = role === "keeper" || (role === "player" && isOwnHunter);
   const canEditTrackers = canEditHunter;
   const canUploadImage = canEditHunter;

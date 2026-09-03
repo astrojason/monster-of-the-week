@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HunterEditModal } from "./HunterEditModal";
 import { useAuth } from "@/lib/auth";
@@ -46,7 +46,7 @@ function makeHunter(overrides: Partial<Hunter> = {}): Hunter {
     keeperNotes: "",
     imageUrl: "",
     imageData: "",
-    playerEmail: "",
+    playerEmails: [],
     ...overrides,
   };
 }
@@ -58,11 +58,14 @@ describe("HunterEditModal account assignment", () => {
     getDocsMock.mockReset();
     updateDocMock.mockResolvedValue(undefined);
     getDocsMock.mockResolvedValue(
-      grantsSnap([{ email: "steve@example.com", role: "player" }])
+      grantsSnap([
+        { email: "steve@example.com", role: "player" },
+        { email: "amy@example.com", role: "player" },
+      ])
     );
   });
 
-  it("lets the keeper reassign the linked account", async () => {
+  it("lets the keeper add a second co-owner to the hunter", async () => {
     mockedUseAuth.mockReturnValue({
       user: { email: "keeper@example.com" } as never,
       role: "keeper",
@@ -71,21 +74,28 @@ describe("HunterEditModal account assignment", () => {
       signIn: vi.fn(),
       logout: vi.fn(),
     });
-    render(<HunterEditModal hunter={makeHunter()} onClose={vi.fn()} onSave={vi.fn()} />);
+    render(
+      <HunterEditModal
+        hunter={makeHunter({ playerEmails: ["steve@example.com"] })}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
     await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
 
-    const select = screen.getByLabelText(/played by \(account\)/i);
-    await userEvent.selectOptions(select, "steve@example.com");
+    const group = screen.getByRole("group", { name: /played by \(accounts\)/i });
+    expect(within(group).getByLabelText("steve@example.com")).toBeChecked();
+    await userEvent.click(within(group).getByLabelText("amy@example.com"));
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => expect(updateDocMock).toHaveBeenCalled());
     expect(updateDocMock).toHaveBeenCalledWith(
       "hunters/h1",
-      expect.objectContaining({ playerEmail: "steve@example.com" })
+      expect.objectContaining({ playerEmails: ["steve@example.com", "amy@example.com"] })
     );
   });
 
-  it("does not let a player reassign the linked account", () => {
+  it("does not let a player reassign the linked accounts", () => {
     mockedUseAuth.mockReturnValue({
       user: { email: "steve@example.com" } as never,
       role: "player",
@@ -96,12 +106,12 @@ describe("HunterEditModal account assignment", () => {
     });
     render(
       <HunterEditModal
-        hunter={makeHunter({ playerEmail: "steve@example.com" })}
+        hunter={makeHunter({ playerEmails: ["steve@example.com"] })}
         onClose={vi.fn()}
         onSave={vi.fn()}
       />
     );
-    expect(screen.queryByLabelText(/played by \(account\)/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /played by \(accounts\)/i })).not.toBeInTheDocument();
     expect(getDocsMock).not.toHaveBeenCalled();
   });
 });

@@ -17,7 +17,7 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
     name: "",
     playbook: PLAYBOOK_LIST[0],
     playedBy: "",
-    playerEmail: "",
+    playerEmails: [] as string[],
     charm: 0,
     cool: 0,
     sharp: 0,
@@ -30,6 +30,15 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
   const [saving, setSaving] = useState(false);
   const [playerGrants, setPlayerGrants] = useState<Grant[]>([]);
   const [grantsError, setGrantsError] = useState("");
+
+  const togglePlayerEmail = (email: string) => {
+    setForm((prev) => ({
+      ...prev,
+      playerEmails: prev.playerEmails.includes(email)
+        ? prev.playerEmails.filter((e) => e !== email)
+        : [...prev.playerEmails, email],
+    }));
+  };
 
   useEffect(() => {
     getDocs(query(collection(db, "grants"), orderBy("email")))
@@ -68,7 +77,7 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
         keeperNotes: "",
         imageUrl: "",
         imageData: "",
-        playerEmail: form.playerEmail,
+        playerEmails: form.playerEmails,
       };
       const docRef = await addDoc(collection(db, "hunters"), hunterData);
       onCreate({ id: docRef.id, ...hunterData });
@@ -129,30 +138,33 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
             </div>
           </div>
 
-          <div>
-            <label htmlFor="hunter-player-email" className="block text-xs text-muted mb-1">
-              Played By (account)
-            </label>
-            <select
-              id="hunter-player-email"
-              value={form.playerEmail}
-              onChange={(e) => setForm({ ...form, playerEmail: e.target.value })}
-              className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
-            >
-              <option value="">Unassigned</option>
-              {playerGrants.map((g) => (
-                <option key={g.email} value={g.email}>{g.email}</option>
-              ))}
-            </select>
+          <fieldset>
+            <legend className="block text-xs text-muted mb-1">Played By (accounts)</legend>
+            {playerGrants.length === 0 ? (
+              <p className="text-xs text-muted">No player accounts granted yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {playerGrants.map((g) => (
+                  <label key={g.email} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.playerEmails.includes(g.email)}
+                      onChange={() => togglePlayerEmail(g.email)}
+                    />
+                    {g.email}
+                  </label>
+                ))}
+              </div>
+            )}
             <p className="text-xs text-muted mt-1">
-              Links this hunter to a player&apos;s account so only they can edit it.
+              Links this hunter to one or more player accounts so only they (and the Keeper) can edit it.
             </p>
             {grantsError && (
               <pre className="text-danger text-xs bg-surface border border-border rounded p-2 mt-1 whitespace-pre-wrap break-words select-all">
                 {grantsError}
               </pre>
             )}
-          </div>
+          </fieldset>
 
           <div>
             <label className="block text-xs text-muted mb-1">Stats</label>
