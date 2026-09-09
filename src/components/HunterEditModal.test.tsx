@@ -29,6 +29,10 @@ function grantsSnap(rows: { email: string; role: string }[]) {
   return { docs: rows.map((r) => ({ data: () => r })) };
 }
 
+function overridesSnap(rows: { id: string; sections: unknown }[] = []) {
+  return { docs: rows.map((r) => ({ id: r.id, data: () => ({ sections: r.sections }) })) };
+}
+
 function makeHunter(overrides: Partial<Hunter> = {}): Hunter {
   return {
     id: "h1",
@@ -38,6 +42,8 @@ function makeHunter(overrides: Partial<Hunter> = {}): Hunter {
     stats: { charm: 0, cool: 0, sharp: 0, tough: 0, weird: 0 },
     moves: [],
     gear: [],
+    options: [],
+    playbookOptions: {},
     luck: 0,
     harm: 0,
     experience: 0,
@@ -57,12 +63,17 @@ describe("HunterEditModal account assignment", () => {
     updateDocMock.mockReset();
     getDocsMock.mockReset();
     updateDocMock.mockResolvedValue(undefined);
-    getDocsMock.mockResolvedValue(
-      grantsSnap([
-        { email: "steve@example.com", role: "player" },
-        { email: "amy@example.com", role: "player" },
-      ])
-    );
+    getDocsMock.mockImplementation((arg: unknown) => {
+      if (typeof arg === "string" && arg.includes("playbookOptionOverrides")) {
+        return Promise.resolve(overridesSnap());
+      }
+      return Promise.resolve(
+        grantsSnap([
+          { email: "steve@example.com", role: "player" },
+          { email: "amy@example.com", role: "player" },
+        ])
+      );
+    });
   });
 
   it("lets the keeper add a second co-owner to the hunter", async () => {
@@ -121,6 +132,88 @@ describe("HunterEditModal account assignment", () => {
     );
   });
 
+  it("saves edited freeform other-options text", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "steve@example.com" } as never,
+      role: "player",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(
+      <HunterEditModal
+        hunter={makeHunter({ options: ["Homebrew perk"] })}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    const optionsField = screen.getByLabelText(/other options \(comma-separated\)/i);
+    await userEvent.clear(optionsField);
+    await userEvent.type(optionsField, "New perk, Homebrew perk");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled());
+    expect(updateDocMock).toHaveBeenCalledWith(
+      "hunters/h1",
+      expect.objectContaining({
+        options: ["New perk", "Homebrew perk"],
+      })
+    );
+  });
+
+  it("expands playbook-specific fields for the hunter's playbook and saves the picks", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "steve@example.com" } as never,
+      role: "player",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(
+      <HunterEditModal hunter={makeHunter({ playbook: "Chosen" })} onClose={vi.fn()} onSave={vi.fn()} />
+    );
+
+    await waitFor(() => expect(screen.getByText("Fate")).toBeInTheDocument());
+    await userEvent.selectOptions(screen.getByLabelText("How You Found Out"), "Trained from birth");
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled());
+    expect(updateDocMock).toHaveBeenCalledWith(
+      "hunters/h1",
+      expect.objectContaining({
+        playbookOptions: expect.objectContaining({
+          fate: expect.objectContaining({ "found-out": ["Trained from birth"] }),
+        }),
+      })
+    );
+  });
+
+  it("prefills previously-saved playbook-specific picks for editing", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "steve@example.com" } as never,
+      role: "player",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(
+      <HunterEditModal
+        hunter={makeHunter({
+          playbook: "Chosen",
+          playbookOptions: { fate: { "found-out": ["Trained from birth"] } },
+        })}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("How You Found Out")).toHaveValue("Trained from birth"));
+  });
+
   it("does not let a player reassign the linked accounts", () => {
     mockedUseAuth.mockReturnValue({
       user: { email: "steve@example.com" } as never,
@@ -138,6 +231,6 @@ describe("HunterEditModal account assignment", () => {
       />
     );
     expect(screen.queryByRole("group", { name: /played by \(accounts\)/i })).not.toBeInTheDocument();
-    expect(getDocsMock).not.toHaveBeenCalled();
+    expect(getDocsMock.mock.calls.some((call) => Array.isArray(call[0]))).toBe(false);
   });
 });

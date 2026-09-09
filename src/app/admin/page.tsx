@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   deleteDoc,
@@ -15,6 +15,16 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
 import { LoginForm } from "@/components/LoginForm";
 import type { Grant } from "@/lib/types";
+import { PLAYBOOK_LIST, playbookSlug } from "@/lib/playbooks";
+import type { PlaybookOptionSection } from "@/lib/playbookOptions";
+import {
+  getDefaultSections,
+  getEffectiveSections,
+  loadPlaybookOptionOverrides,
+  resetPlaybookOptionOverride,
+  savePlaybookOptionOverride,
+  type PlaybookOptionOverrides,
+} from "@/lib/playbookOptionsStore";
 import { Loader2, Pencil, Plus, Save, Shield, Trash2, User, Users, X } from "lucide-react";
 
 export default function AdminPage() {
@@ -30,10 +40,71 @@ export default function AdminPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
 
+  const [optionOverrides, setOptionOverrides] = useState<PlaybookOptionOverrides>({});
+  const [selectedPlaybook, setSelectedPlaybook] = useState(PLAYBOOK_LIST[0]);
+  const [sectionsJson, setSectionsJson] = useState("");
+  const [optionsError, setOptionsError] = useState("");
+  const [savingSections, setSavingSections] = useState(false);
+
   useEffect(() => {
     if (status !== "authorized" || role !== "keeper") return;
     loadGrants();
+    loadPlaybookOptionOverrides()
+      .then(setOptionOverrides)
+      .catch((err) => setOptionsError(err instanceof Error ? err.message : String(err)));
   }, [status, role]);
+
+  const effectiveSections = useMemo(
+    () => getEffectiveSections(selectedPlaybook, optionOverrides),
+    [selectedPlaybook, optionOverrides]
+  );
+
+  useEffect(() => {
+    setSectionsJson(JSON.stringify(effectiveSections, null, 2));
+  }, [effectiveSections]);
+
+  const isOverridden = !!optionOverrides[playbookSlug(selectedPlaybook)];
+
+  const saveSections = async () => {
+    setOptionsError("");
+    let parsed: PlaybookOptionSection[];
+    try {
+      parsed = JSON.parse(sectionsJson);
+    } catch (err) {
+      setOptionsError(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    setSavingSections(true);
+    try {
+      await savePlaybookOptionOverride(selectedPlaybook, parsed);
+      setOptionOverrides((prev) => ({
+        ...prev,
+        [playbookSlug(selectedPlaybook)]: parsed,
+      }));
+    } catch (err) {
+      setOptionsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingSections(false);
+    }
+  };
+
+  const resetSections = async () => {
+    setOptionsError("");
+    setSavingSections(true);
+    try {
+      await resetPlaybookOptionOverride(selectedPlaybook);
+      setOptionOverrides((prev) => {
+        const next = { ...prev };
+        delete next[playbookSlug(selectedPlaybook)];
+        return next;
+      });
+      setSectionsJson(JSON.stringify(getDefaultSections(selectedPlaybook), null, 2));
+    } catch (err) {
+      setOptionsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingSections(false);
+    }
+  };
 
   const loadGrants = async () => {
     setError("");
@@ -259,6 +330,77 @@ export default function AdminPage() {
           ))}
         </div>
       )}
+
+      <div className="flex items-center gap-2 mt-10 mb-6">
+        <Pencil className="w-5 h-5 text-accent" />
+        <h1 className="text-2xl font-bold">Playbook Options</h1>
+      </div>
+      <p className="text-sm text-muted mb-3">
+        Each playbook&apos;s character-creation options are transcribed from its rulebook PDF and may contain
+        mistakes. Pick a playbook to review or correct its sections here; saving creates an override that takes
+        precedence over the built-in default everywhere in the app.
+      </p>
+
+      <div className="bg-surface border border-border rounded-lg p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex-1">
+            <label htmlFor="options-playbook" className="block text-xs text-muted mb-1">
+              Playbook
+            </label>
+            <select
+              id="options-playbook"
+              value={selectedPlaybook}
+              onChange={(e) => setSelectedPlaybook(e.target.value)}
+              className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+            >
+              {PLAYBOOK_LIST.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          {isOverridden && (
+            <span className="text-xs text-accent border border-accent rounded px-2 py-1 whitespace-nowrap">
+              Overridden
+            </span>
+          )}
+        </div>
+
+        <label htmlFor="options-sections-json" className="block text-xs text-muted mb-1">
+          Sections JSON
+        </label>
+        <textarea
+          id="options-sections-json"
+          value={sectionsJson}
+          onChange={(e) => setSectionsJson(e.target.value)}
+          className="w-full bg-background border border-border rounded px-3 py-2 text-xs font-mono focus:outline-none focus:border-accent"
+          rows={16}
+          spellCheck={false}
+        />
+
+        {optionsError && (
+          <pre className="text-danger text-xs bg-surface border border-border rounded p-3 mt-2 whitespace-pre-wrap break-words select-all">
+            {optionsError}
+          </pre>
+        )}
+
+        <div className="flex gap-3 mt-3">
+          <button
+            onClick={saveSections}
+            disabled={savingSections}
+            className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white text-sm px-4 py-2 rounded-md transition-colors disabled:opacity-50"
+          >
+            {savingSections ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Save Sections
+          </button>
+          <button
+            onClick={resetSections}
+            disabled={savingSections || !isOverridden}
+            className="flex items-center gap-2 border border-border text-sm px-4 py-2 rounded-md hover:bg-surface-hover transition-colors disabled:opacity-50"
+          >
+            Reset to Default
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

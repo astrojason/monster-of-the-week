@@ -5,6 +5,8 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
 import type { Hunter } from "@/lib/types";
+import { summarizePlaybookOptions } from "@/lib/playbookOptions";
+import { getEffectiveSections, type PlaybookOptionOverrides } from "@/lib/playbookOptionsStore";
 import { TrackerBoxes } from "./TrackerBoxes";
 import { ImageUpload } from "./ImageUpload";
 import { HunterEditModal } from "./HunterEditModal";
@@ -12,10 +14,11 @@ import { Skull, Sparkles, Edit, User, MessageSquare, Lock, Save, Loader2 } from 
 
 interface HunterCardProps {
   hunter: Hunter;
+  optionOverrides?: PlaybookOptionOverrides;
   onUpdate: (hunter: Hunter) => void;
 }
 
-export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
+export function HunterCard({ hunter, optionOverrides = {}, onUpdate }: HunterCardProps) {
   const { role, user } = useAuth();
   const [editing, setEditing] = useState(false);
   const [editingPlayerNotes, setEditingPlayerNotes] = useState(false);
@@ -34,6 +37,11 @@ export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
   const canEditTrackers = canEditHunter;
   const canUploadImage = canEditHunter;
   const canEditDetails = canEditHunter;
+
+  const optionSummaries = summarizePlaybookOptions(
+    getEffectiveSections(hunter.playbook, optionOverrides),
+    hunter.playbookOptions
+  );
 
   const updateField = async (field: string, value: number) => {
     try {
@@ -162,6 +170,37 @@ export function HunterCard({ hunter, onUpdate }: HunterCardProps) {
                 {hunter.gear.map((item, i) => (
                   <span key={i} className="text-xs bg-background border border-border px-2 py-0.5 rounded">
                     {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Character Options (playbook-specific, structured) */}
+          {optionSummaries.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs text-muted uppercase tracking-wide mb-1">Character Options</p>
+              <div className="flex flex-col gap-1">
+                {optionSummaries.map((summary, i) => (
+                  <span
+                    key={i}
+                    className="text-xs bg-background border border-border px-2 py-1 rounded"
+                  >
+                    {summary}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Other Options (freeform) */}
+          {(hunter.options || []).length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs text-muted uppercase tracking-wide mb-1">Other Options</p>
+              <div className="flex flex-wrap gap-1">
+                {hunter.options.map((option, i) => (
+                  <span key={i} className="text-xs bg-background border border-border px-2 py-0.5 rounded">
+                    {option}
                   </span>
                 ))}
               </div>

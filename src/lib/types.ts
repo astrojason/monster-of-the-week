@@ -1,3 +1,5 @@
+import type { PlaybookOptionValues } from "./playbookOptions";
+
 export interface HunterStats {
   charm: number;
   cool: number;
@@ -14,6 +16,8 @@ export interface Hunter {
   stats: HunterStats;
   moves: string[];
   gear: string[];
+  options: string[];
+  playbookOptions: PlaybookOptionValues;
   luck: number;
   harm: number;
   experience: number;

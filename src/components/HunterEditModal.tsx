@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { doc, updateDoc, collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
 import type { Grant, Hunter } from "@/lib/types";
+import type { PlaybookOptionValues } from "@/lib/playbookOptions";
 import { PLAYBOOK_LIST } from "@/lib/playbooks";
+import { getEffectiveSections, loadPlaybookOptionOverrides, type PlaybookOptionOverrides } from "@/lib/playbookOptionsStore";
 import { PlayerEmailsField } from "./PlayerEmailsField";
+import { PlaybookOptionsFields } from "./PlaybookOptionsFields";
 import { X, Save } from "lucide-react";
 
 interface HunterEditModalProps {
@@ -29,11 +32,15 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
     weird: hunter.stats.weird,
     moves: hunter.moves.join(", "),
     gear: hunter.gear.join(", "),
+    options: (hunter.options || []).join(", "),
     notes: hunter.notes,
   });
+  const [playbookOptions, setPlaybookOptions] = useState<PlaybookOptionValues>(hunter.playbookOptions || {});
   const [saving, setSaving] = useState(false);
   const [playerGrants, setPlayerGrants] = useState<Grant[]>([]);
   const [grantsError, setGrantsError] = useState("");
+  const [optionOverrides, setOptionOverrides] = useState<PlaybookOptionOverrides>({});
+  const [optionOverridesError, setOptionOverridesError] = useState("");
 
   useEffect(() => {
     if (role !== "keeper") return;
@@ -44,6 +51,17 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
       })
       .catch((err) => setGrantsError(err instanceof Error ? err.message : String(err)));
   }, [role]);
+
+  useEffect(() => {
+    loadPlaybookOptionOverrides()
+      .then(setOptionOverrides)
+      .catch((err) => setOptionOverridesError(err instanceof Error ? err.message : String(err)));
+  }, []);
+
+  const playbookSections = useMemo(
+    () => getEffectiveSections(form.playbook, optionOverrides),
+    [form.playbook, optionOverrides]
+  );
 
   const handleSave = async () => {
     setSaving(true);
@@ -61,6 +79,8 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
         },
         moves: form.moves.split(",").map((s) => s.trim()).filter(Boolean),
         gear: form.gear.split(",").map((s) => s.trim()).filter(Boolean),
+        options: form.options.split(",").map((s) => s.trim()).filter(Boolean),
+        playbookOptions,
         notes: form.notes,
       };
       if (role === "keeper") {
@@ -97,8 +117,9 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-muted mb-1">Playbook</label>
+              <label htmlFor="hunter-edit-playbook" className="block text-xs text-muted mb-1">Playbook</label>
               <select
+                id="hunter-edit-playbook"
                 value={form.playbook}
                 onChange={(e) => setForm({ ...form, playbook: e.target.value })}
                 className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
@@ -163,6 +184,26 @@ export function HunterEditModal({ hunter, onClose, onSave }: HunterEditModalProp
               onChange={(e) => setForm({ ...form, gear: e.target.value })}
               className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
               rows={2}
+            />
+          </div>
+
+          {optionOverridesError && (
+            <pre className="text-danger text-xs bg-surface border border-border rounded p-2 whitespace-pre-wrap break-words select-all">
+              {optionOverridesError}
+            </pre>
+          )}
+
+          <PlaybookOptionsFields sections={playbookSections} values={playbookOptions} onChange={setPlaybookOptions} />
+
+          <div>
+            <label htmlFor="hunter-edit-options" className="block text-xs text-muted mb-1">Other options (comma-separated)</label>
+            <textarea
+              id="hunter-edit-options"
+              value={form.options}
+              onChange={(e) => setForm({ ...form, options: e.target.value })}
+              className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              rows={2}
+              placeholder="Anything not covered above"
             />
           </div>
 

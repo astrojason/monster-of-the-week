@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AdminPage from "./page";
 import { useAuth } from "@/lib/auth";
@@ -235,6 +235,89 @@ describe("AdminPage", () => {
     });
   });
 
+  it("loads the built-in default sections for a playbook as editable JSON", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await userEvent.selectOptions(screen.getByLabelText(/playbook/i), "Chosen");
+
+    await waitFor(() => expect((screen.getByLabelText(/sections json/i) as HTMLTextAreaElement).value).toContain('"fate"'));
+  });
+
+  it("saves edited JSON as an override for that playbook's slug", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await userEvent.selectOptions(screen.getByLabelText(/playbook/i), "Chosen");
+    await waitFor(() => expect((screen.getByLabelText(/sections json/i) as HTMLTextAreaElement).value).toContain('"fate"'));
+
+    const textarea = screen.getByLabelText(/sections json/i);
+    fireEvent.change(textarea, { target: { value: "[]" } });
+    await userEvent.click(screen.getByRole("button", { name: /save sections/i }));
+
+    await waitFor(() => expect(setDocMock).toHaveBeenCalledWith("playbookOptionOverrides/chosen", { sections: [] }));
+  });
+
+  it("shows the exact JSON parse error instead of a vague message when saving invalid JSON", async () => {
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await userEvent.selectOptions(screen.getByLabelText(/playbook/i), "Chosen");
+    await waitFor(() => expect((screen.getByLabelText(/sections json/i) as HTMLTextAreaElement).value).toContain('"fate"'));
+
+    const textarea = screen.getByLabelText(/sections json/i);
+    fireEvent.change(textarea, { target: { value: "{not json" } });
+    await userEvent.click(screen.getByRole("button", { name: /save sections/i }));
+
+    expect(setDocMock).not.toHaveBeenCalled();
+    expect(screen.getByText(/Invalid JSON/i)).toBeInTheDocument();
+  });
+
+  it("resets a playbook's sections back to the built-in default", async () => {
+    getDocsMock.mockImplementation((arg: unknown) => {
+      if (typeof arg === "string" && arg.includes("playbookOptionOverrides")) {
+        return Promise.resolve({
+          docs: [{ id: "chosen", data: () => ({ sections: [{ key: "custom", label: "Custom", kind: "fields", fields: [] }] }) }],
+        });
+      }
+      return Promise.resolve(grantsSnap([]));
+    });
+    mockedUseAuth.mockReturnValue({
+      user: { email: "keeper@example.com" } as never,
+      role: "keeper",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+    render(<AdminPage />);
+    await userEvent.selectOptions(screen.getByLabelText(/playbook/i), "Chosen");
+    await waitFor(() => expect((screen.getByLabelText(/sections json/i) as HTMLTextAreaElement).value).toContain('"custom"'));
+
+    await userEvent.click(screen.getByRole("button", { name: /reset to default/i }));
+
+    await waitFor(() => expect(deleteDocMock).toHaveBeenCalledWith("playbookOptionOverrides/chosen"));
+    await waitFor(() => expect((screen.getByLabelText(/sections json/i) as HTMLTextAreaElement).value).toContain('"fate"'));
+  });
+
   it("surfaces the full error message when loading grants fails", async () => {
     getDocsMock.mockRejectedValue(new Error("permission denied on grants"));
     mockedUseAuth.mockReturnValue({
@@ -247,7 +330,7 @@ describe("AdminPage", () => {
     });
     render(<AdminPage />);
     await waitFor(() =>
-      expect(screen.getByText("permission denied on grants")).toBeInTheDocument()
+      expect(screen.getAllByText("permission denied on grants").length).toBeGreaterThan(0)
     );
   });
 });

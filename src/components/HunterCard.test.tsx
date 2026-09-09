@@ -34,6 +34,8 @@ function makeHunter(overrides: Partial<Hunter> = {}): Hunter {
     stats: { charm: 0, cool: 0, sharp: 0, tough: 0, weird: 0 },
     moves: [],
     gear: [],
+    options: [],
+    playbookOptions: {},
     luck: 0,
     harm: 0,
     experience: 0,
@@ -46,6 +48,79 @@ function makeHunter(overrides: Partial<Hunter> = {}): Hunter {
     ...overrides,
   };
 }
+
+describe("HunterCard options display", () => {
+  beforeEach(() => {
+    mockedUseAuth.mockReset();
+    mockedUseAuth.mockReturnValue({
+      user: { email: "steve@example.com" } as never,
+      role: "player",
+      status: "authorized",
+      error: "",
+      signIn: vi.fn(),
+      logout: vi.fn(),
+    });
+  });
+
+  it("shows freeform other-options text alongside moves and gear", () => {
+    render(
+      <HunterCard
+        hunter={makeHunter({ options: ["Homebrew perk", "Extra flavor"] })}
+        onUpdate={vi.fn()}
+      />
+    );
+    expect(screen.getByText("Other Options")).toBeInTheDocument();
+    expect(screen.getByText("Homebrew perk")).toBeInTheDocument();
+    expect(screen.getByText("Extra flavor")).toBeInTheDocument();
+  });
+
+  it("hides the other-options section when there are none", () => {
+    render(<HunterCard hunter={makeHunter({ options: [] })} onUpdate={vi.fn()} />);
+    expect(screen.queryByText("Other Options")).not.toBeInTheDocument();
+  });
+
+  it("shows a readable summary of the playbook's structured picks, using the current (possibly overridden) schema", () => {
+    render(
+      <HunterCard
+        hunter={makeHunter({
+          playbook: "Chosen",
+          playbookOptions: { fate: { "found-out": ["Trained from birth"] } },
+        })}
+        onUpdate={vi.fn()}
+      />
+    );
+    expect(screen.getByText("Character Options")).toBeInTheDocument();
+    expect(screen.getByText(/Fate: How You Found Out: Trained from birth/)).toBeInTheDocument();
+  });
+
+  it("relabels a structured pick according to a keeper-supplied override schema", () => {
+    render(
+      <HunterCard
+        hunter={makeHunter({
+          playbook: "Chosen",
+          playbookOptions: { fate: { "found-out": ["Trained from birth"] } },
+        })}
+        optionOverrides={{
+          chosen: [
+            {
+              key: "fate",
+              label: "Corrected Fate Label",
+              kind: "fields",
+              fields: [{ key: "found-out", label: "Corrected Field Label", kind: "text" }],
+            },
+          ],
+        }}
+        onUpdate={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/Corrected Fate Label: Corrected Field Label: Trained from birth/)).toBeInTheDocument();
+  });
+
+  it("hides the character-options section when the playbook has no structured picks", () => {
+    render(<HunterCard hunter={makeHunter({ playbook: "Celebrity" })} onUpdate={vi.fn()} />);
+    expect(screen.queryByText("Character Options")).not.toBeInTheDocument();
+  });
+});
 
 function authAs(role: "player" | "keeper", email: string) {
   mockedUseAuth.mockReturnValue({

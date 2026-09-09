@@ -5,6 +5,7 @@ import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth";
 import type { Hunter } from "@/lib/types";
+import { loadPlaybookOptionOverrides, type PlaybookOptionOverrides } from "@/lib/playbookOptionsStore";
 import { LoginForm } from "@/components/LoginForm";
 import { HunterCard } from "@/components/HunterCard";
 import { CreateHunterModal } from "@/components/CreateHunterModal";
@@ -15,6 +16,8 @@ export default function HomePage() {
   const [hunters, setHunters] = useState<Hunter[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [optionOverrides, setOptionOverrides] = useState<PlaybookOptionOverrides>({});
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     if (status !== "authorized") return;
@@ -24,11 +27,12 @@ export default function HomePage() {
   const loadHunters = async () => {
     try {
       const q = query(collection(db, "hunters"), orderBy("name"));
-      const snap = await getDocs(q);
+      const [snap, overrides] = await Promise.all([getDocs(q), loadPlaybookOptionOverrides()]);
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Hunter));
       setHunters(data);
+      setOptionOverrides(overrides);
     } catch (err) {
-      console.error("Failed to load hunters:", err);
+      setLoadError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -63,6 +67,12 @@ export default function HomePage() {
         )}
       </div>
 
+      {loadError && (
+        <pre className="text-danger text-xs bg-surface border border-border rounded p-3 mb-6 whitespace-pre-wrap break-words select-all">
+          {loadError}
+        </pre>
+      )}
+
       {hunters.length === 0 ? (
         <div className="text-center py-20 text-muted">
           <p>No hunters yet.</p>
@@ -73,7 +83,7 @@ export default function HomePage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {hunters.map((hunter) => (
-            <HunterCard key={hunter.id} hunter={hunter} onUpdate={updateHunter} />
+            <HunterCard key={hunter.id} hunter={hunter} optionOverrides={optionOverrides} onUpdate={updateHunter} />
           ))}
         </div>
       )}

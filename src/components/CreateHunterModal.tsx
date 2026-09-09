@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { collection, addDoc, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Grant, Hunter } from "@/lib/types";
+import type { PlaybookOptionValues } from "@/lib/playbookOptions";
 import { PLAYBOOK_LIST } from "@/lib/playbooks";
+import { getEffectiveSections, loadPlaybookOptionOverrides, type PlaybookOptionOverrides } from "@/lib/playbookOptionsStore";
 import { PlayerEmailsField } from "./PlayerEmailsField";
+import { PlaybookOptionsFields } from "./PlaybookOptionsFields";
 import { X, Plus } from "lucide-react";
 
 interface CreateHunterModalProps {
@@ -26,11 +29,15 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
     weird: 0,
     moves: "",
     gear: "",
+    options: "",
     notes: "",
   });
+  const [playbookOptions, setPlaybookOptions] = useState<PlaybookOptionValues>({});
   const [saving, setSaving] = useState(false);
   const [playerGrants, setPlayerGrants] = useState<Grant[]>([]);
   const [grantsError, setGrantsError] = useState("");
+  const [optionOverrides, setOptionOverrides] = useState<PlaybookOptionOverrides>({});
+  const [optionOverridesError, setOptionOverridesError] = useState("");
 
   useEffect(() => {
     getDocs(query(collection(db, "grants"), orderBy("email")))
@@ -39,7 +46,15 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
         setPlayerGrants(grants.filter((g) => g.role === "player"));
       })
       .catch((err) => setGrantsError(err instanceof Error ? err.message : String(err)));
+    loadPlaybookOptionOverrides()
+      .then(setOptionOverrides)
+      .catch((err) => setOptionOverridesError(err instanceof Error ? err.message : String(err)));
   }, []);
+
+  const playbookSections = useMemo(
+    () => getEffectiveSections(form.playbook, optionOverrides),
+    [form.playbook, optionOverrides]
+  );
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.playedBy.trim()) {
@@ -61,6 +76,8 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
         },
         moves: form.moves.split(",").map((s) => s.trim()).filter(Boolean),
         gear: form.gear.split(",").map((s) => s.trim()).filter(Boolean),
+        options: form.options.split(",").map((s) => s.trim()).filter(Boolean),
+        playbookOptions,
         luck: 0,
         harm: 0,
         experience: 0,
@@ -175,6 +192,26 @@ export function CreateHunterModal({ onClose, onCreate }: CreateHunterModalProps)
               className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
               rows={2}
               placeholder="Item 1, Item 2"
+            />
+          </div>
+
+          {optionOverridesError && (
+            <pre className="text-danger text-xs bg-surface border border-border rounded p-2 whitespace-pre-wrap break-words select-all">
+              {optionOverridesError}
+            </pre>
+          )}
+
+          <PlaybookOptionsFields sections={playbookSections} values={playbookOptions} onChange={setPlaybookOptions} />
+
+          <div>
+            <label htmlFor="hunter-options" className="block text-xs text-muted mb-1">Other options (comma-separated)</label>
+            <textarea
+              id="hunter-options"
+              value={form.options}
+              onChange={(e) => setForm({ ...form, options: e.target.value })}
+              className="w-full bg-background border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+              rows={2}
+              placeholder="Anything not covered above"
             />
           </div>
 

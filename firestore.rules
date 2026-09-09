@@ -34,8 +34,13 @@ service cloud.firestore {
         isGranted() && myRole() == 'player' &&
         email() in resource.data.playerEmails &&
         onlyChanged(
-          ['name', 'playbook', 'playedBy', 'stats', 'moves', 'gear', 'notes',
+          ['name', 'playbook', 'playedBy', 'stats', 'moves', 'gear', 'options', 'playbookOptions', 'notes',
            'luck', 'harm', 'experience', 'imageUrl', 'imageData', 'playerNotes']));
+    }
+
+    match /playbookOptionOverrides/{playbookSlug} {
+      allow read: if isGranted();
+      allow create, update, delete: if isKeeper();
     }
 
     match /mysteries/{mysteryId} {

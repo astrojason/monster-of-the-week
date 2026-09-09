@@ -20,18 +20,27 @@ function grantsSnap(rows: { email: string; role: string }[]) {
   return { docs: rows.map((r) => ({ data: () => r })) };
 }
 
+function overridesSnap(rows: { id: string; sections: unknown }[] = []) {
+  return { docs: rows.map((r) => ({ id: r.id, data: () => ({ sections: r.sections }) })) };
+}
+
 describe("CreateHunterModal account assignment", () => {
   beforeEach(() => {
     addDocMock.mockReset();
     getDocsMock.mockReset();
     addDocMock.mockResolvedValue({ id: "new-hunter" });
-    getDocsMock.mockResolvedValue(
-      grantsSnap([
-        { email: "steve@example.com", role: "player" },
-        { email: "amy@example.com", role: "player" },
-        { email: "keeper@example.com", role: "keeper" },
-      ])
-    );
+    getDocsMock.mockImplementation((arg: unknown) => {
+      if (typeof arg === "string" && arg.includes("playbookOptionOverrides")) {
+        return Promise.resolve(overridesSnap());
+      }
+      return Promise.resolve(
+        grantsSnap([
+          { email: "steve@example.com", role: "player" },
+          { email: "amy@example.com", role: "player" },
+          { email: "keeper@example.com", role: "keeper" },
+        ])
+      );
+    });
   });
 
   it("offers granted players as quick-add suggestions but not the keeper", async () => {
@@ -73,6 +82,49 @@ describe("CreateHunterModal account assignment", () => {
       "hunters",
       expect.objectContaining({
         playerEmails: ["new-player@example.com", "steve@example.com"],
+      })
+    );
+  });
+
+  it("creates the hunter with freeform other-options text", async () => {
+    render(<CreateHunterModal onClose={vi.fn()} onCreate={vi.fn()} />);
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByLabelText(/^name/i), "New Hunter");
+    await userEvent.type(screen.getByLabelText(/played by \*/i), "Steve");
+    await userEvent.type(screen.getByLabelText(/other options \(comma-separated\)/i), "Homebrew perk");
+
+    await userEvent.click(screen.getByRole("button", { name: /create hunter/i }));
+
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled());
+    expect(addDocMock).toHaveBeenCalledWith(
+      "hunters",
+      expect.objectContaining({
+        options: ["Homebrew perk"],
+      })
+    );
+  });
+
+  it("expands playbook-specific fields when a playbook with special options is chosen, and saves the picks", async () => {
+    render(<CreateHunterModal onClose={vi.fn()} onCreate={vi.fn()} />);
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalled());
+
+    await userEvent.selectOptions(screen.getByLabelText(/^playbook/i), "Chosen");
+    await waitFor(() => expect(screen.getByText("Fate")).toBeInTheDocument());
+
+    await userEvent.type(screen.getByLabelText(/^name/i), "New Hunter");
+    await userEvent.type(screen.getByLabelText(/played by \*/i), "Steve");
+    await userEvent.selectOptions(screen.getByLabelText("How You Found Out"), "Trained from birth");
+
+    await userEvent.click(screen.getByRole("button", { name: /create hunter/i }));
+
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled());
+    expect(addDocMock).toHaveBeenCalledWith(
+      "hunters",
+      expect.objectContaining({
+        playbookOptions: expect.objectContaining({
+          fate: expect.objectContaining({ "found-out": ["Trained from birth"] }),
+        }),
       })
     );
   });
